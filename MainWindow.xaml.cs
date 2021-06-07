@@ -24,7 +24,6 @@ namespace Voronoi
         private VDiagram Vd;
         private Node focus; 
         private static Canvas canvas;
-        //private RBTree tree;
 
         public MainWindow()
         {
@@ -33,6 +32,7 @@ namespace Voronoi
             Vd = new VDiagram(0, 800, 450);
             focus = new Node(400, 225);
             canvas = TheCanvas;
+            //AddAndDrawNode(379, 141.6);
         }
 
         private void AddAndDrawNode(double x, double y)

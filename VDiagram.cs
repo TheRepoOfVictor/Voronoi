@@ -59,10 +59,11 @@ namespace Voronoi
 
     public class Node
     {
-        public Node(double x, double y)
+        public Node(double x, double y, bool first = false)
         {
             X = x;
             Y = y;
+            IsFirstArc = first;
         }
 
         public static Node operator +(Node n1, Node n2)
@@ -72,6 +73,7 @@ namespace Voronoi
 
         public double X { get; }
         public double Y { get; }
+        public bool IsFirstArc { get; }
     }
 
     class VDiagram
@@ -93,7 +95,7 @@ namespace Voronoi
 
             Edge leftmost = new Edge(new Node(LeftBound, -BottomBound), new Node(LeftBound, BottomBound), null, null);
             Edge rightmost = new Edge(new Node(RightBound , -BottomBound), new Node(RightBound, BottomBound), null, null);
-            Arc first = new Arc(new Node(RightBound/2, -BottomBound), leftmost, rightmost, null, null);
+            Arc first = new Arc(new Node(RightBound/2, 0, true), leftmost, rightmost, null, null);
             leftmost.RightArc = first;
             rightmost.LeftArc = first;
             Edges = new List<Edge>();
@@ -150,10 +152,19 @@ namespace Voronoi
 
             Edge le = arc.LeftEdge;
             Edge re = arc.RightEdge;
-            Node intersection = GetIntersectionFromPoints(le.Origin, le.Direction, re.Origin, re.Direction);
+            Node intersection; 
+            if (arc.Focus.IsFirstArc)
+            {
+                intersection = GetIntersectionOfArcsOnFlatLine(arc.LeftArc, arc.RightArc);
+            }
+            else
+            {
+                intersection = GetIntersectionFromPoints(le.Origin, le.Direction, re.Origin, re.Direction);
+            }
+
             if (intersection == null) return;
             double dy;
-            if(arc.LeftArc != null)
+            if(arc.LeftArc != null && !arc.LeftArc.Focus.IsFirstArc)
             {
                 dy = Math.Sqrt(Math.Pow(arc.LeftArc.Focus.X - intersection.X, 2.0) + Math.Pow(arc.LeftArc.Focus.Y - intersection.Y, 2.0));
             }
@@ -182,11 +193,12 @@ namespace Voronoi
             Node[] directions = GetNormalDirections(above.Focus, next);
             Edge leftedge = new Edge(intersection, directions[0] + intersection, null, null);
             Edge rightedge = new Edge(intersection, directions[1] + intersection, null, null);
-
             Arc newSite = new Arc(next, leftedge, rightedge, null, null);
+
             Arc newleft = new Arc(above.Focus, above.LeftEdge, leftedge, above.LeftArc, newSite);
             if(newleft.LeftArc != null) newleft.LeftArc.RightArc = newleft;
             newleft.LeftEdge.RightArc = newleft;
+
             Arc newRight = new Arc(above.Focus, rightedge, above.RightEdge, newSite, above.RightArc);
             if (newRight.RightArc != null) newRight.RightArc.LeftArc = newRight;
             newRight.RightEdge.LeftArc = newRight;
@@ -270,6 +282,15 @@ namespace Voronoi
 
         static private Node[] GetNormalDirections(Node Upper, Node Lower)
         {
+            if (Upper.IsFirstArc)
+            {
+                return new Node[] { new Node(-1, 0), new Node(1, 0) };
+            }
+            else if (Lower.IsFirstArc)
+            {
+                return new Node[] { new Node(1, 0), new Node(-1, 0) };
+            }
+
             double dx = Upper.X - Lower.X;
             double dy = Upper.Y - Lower.Y;
 
@@ -291,8 +312,24 @@ namespace Voronoi
         {
             double y2 = p.Y;
             double x = p.X;
+            if (focus.IsFirstArc)
+            {
+                return new Node(x, 0);
+            }
             double y = CurveFunc(focus, y2, x);
             return new Node(x, y);
+        }
+
+        static private double[] Quadratic(double a, double b, double c) 
+        {
+            double det = b * b - 4 * a * c;
+            if (a == 0) return null;
+            if (det < 0) return null;
+
+            double pos = (-b + Math.Sqrt(det)) / (2 * a);
+            double neg = (-b - Math.Sqrt(det)) / (2 * a);
+
+            return new double[] { pos, neg };
         }
 
         static public double[] GetIntersectionsFromCurves(Node f1, Node f2, double dir)
@@ -326,15 +363,21 @@ namespace Voronoi
             double b1 = -2.0 * x1 / (2.0 * d1);
             double c1 = x1 * x1 / (2.0 * d1) + (y1 + dir) / 2.0;
 
+            if (f2.IsFirstArc)
+            {
+                return Quadratic(a1, b1, c1);
+            }
+
             double a2 = 1.0 / (2.0 * d2);
             double b2 = -2.0 * x2 / (2.0 * d2);
             double c2 = x2 * x2 / (2.0 * d2) + (y2 + dir) / 2.0;
 
-            double det = Math.Sqrt(Math.Pow(b1 - b2, 2.0) - 4.0 * (a1 - a2) * (c1 - c2));
+            if (f1.IsFirstArc)
+            {
+                return Quadratic(a2, b2, c2);
+            }
 
-            double posX = (-1.0 * (b1 - b2) + det) / (2 * (a1 - a2));
-            double negX = (-1.0 * (b1 - b2) - det) / (2 * (a1 - a2));
-            return new double[] { posX, negX };
+            return Quadratic(a1 - a2, b1 - b2, c1 - c2);
         }
 
         static private bool CheckIntersection(Node origin, Node direction, Node intersection)
@@ -388,7 +431,17 @@ namespace Voronoi
                 return CheckIntersection(n1, n2, i) && CheckIntersection(n3, n4, i) ? i : null;
             }
 
-            if (a1 - a2 == 0) return null;
+            //Lines are parallel
+            if (a1 == a2 ) 
+            { 
+                //They are the same line equation
+                if(b1 == b2)
+                {
+                    Node i = new Node((n1.X + n3.X) / 2, (n1.Y + n3.Y) / 2);
+                    return CheckIntersection(n1, n2, i) && CheckIntersection(n3, n4, i) ? i : null;
+                }
+                return null; 
+            }
 
             double x = (b2 - b1) / (a1 - a2);
             double y = a1 * x + b1;
@@ -398,10 +451,42 @@ namespace Voronoi
             return CheckIntersection(n1, n2, intersection) && CheckIntersection(n3, n4, intersection) ? intersection : null;
         }
 
+        private static Node GetIntersectionOfArcsOnFlatLine(Arc a1, Arc a2, double y = 0)
+        {
+            if(a1 == null)
+            {
+                return new Node(0, y);
+            }
+            else if(a2 == null)
+            {
+                return new Node(RightBound, y);
+            }
+            Node n1 = a1.Focus;
+            Node n2 = a2.Focus;
+
+            double x1 = n1.X;
+            double y1 = n1.Y;
+            double x2 = n2.X;
+            double y2 = n2.Y;
+
+            double r1 = ((y2 * y2 - y1 * y1) / (x2 - x1) + x2 - x1) / 2;
+            double x = x1 + r1;
+            return new Node(x, y);
+        }
+
         public static double GetCurrentLeftIntersectionOfArc(Arc arc)
         {
             if (arc.LeftArc == null) return LeftBound;
             double[] intersections = GetIntersectionsFromCurves(arc.Focus, arc.LeftArc.Focus, Directrix);
+            if (arc.Focus.IsFirstArc)
+            {
+                return intersections[0] > intersections[1] ? intersections[0] : intersections[1];
+            }
+            else if (arc.LeftArc.Focus.IsFirstArc)
+            {
+                return intersections[0] < intersections[1] ? intersections[0] : intersections[1];
+            }
+
             double y1 = CurveFunc(arc.Focus, Directrix, intersections[0] + 0.5);
             double y2 = CurveFunc(arc.LeftArc.Focus, Directrix, intersections[0] + 0.5);
             return y1 > y2 ? intersections[0] : intersections[1];
@@ -411,6 +496,14 @@ namespace Voronoi
         {
             if (arc.RightArc == null) return RightBound;
             double[] intersections = GetIntersectionsFromCurves(arc.Focus, arc.RightArc.Focus, Directrix);
+            if (arc.Focus.IsFirstArc) 
+            {
+                return intersections[0] < intersections[1] ? intersections[0] : intersections[1];
+            }
+            else if (arc.RightArc.Focus.IsFirstArc)
+            {
+                return intersections[0] > intersections[1] ? intersections[0] : intersections[1];
+            }
             double y1 = CurveFunc(arc.Focus, Directrix, intersections[0] + 0.5);
             double y2 = CurveFunc(arc.RightArc.Focus, Directrix, intersections[0] + 0.5);
             return y1 < y2 ? intersections[0] : intersections[1];
