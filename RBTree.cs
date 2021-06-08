@@ -142,6 +142,20 @@ namespace Voronoi
             return Find(root, x);
         }
 
+        public Arc LeftMost()
+        {
+            return LeftMost(root);
+        }
+
+        private Arc LeftMost(Node r)
+        {
+            if(r.Left == null)
+            {
+                return r.Val;
+            }
+            return LeftMost(r.Left);
+        }
+
         private void Delete(Node r, Arc value)
         {
             if (r == null)

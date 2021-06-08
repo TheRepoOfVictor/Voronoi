@@ -128,21 +128,36 @@ namespace Voronoi
                     HandleCircleEvent(next);
                 }
             }
-            Cleanup(SweepLine.Find(0));
+            Cleanup(SweepLine.LeftMost());
         }
 
-        private void Cleanup(Arc arc)
+        private void Cleanup(Arc arc, double prevX = 0)
         {
             if (arc == null) return;
-            if (arc.RightArc == null) return;
             Node bottomLeft = new Node(LeftBound, BottomBound);
             Node bottomRight = new Node(RightBound, BottomBound);
+            if (arc.RightArc == null)
+            {
+                Edges.Add(new Edge(arc.RightEdge.Origin, null, null, null, bottomRight));
+                Edges.Add(new Edge(new Node(prevX, BottomBound), null, null, null, bottomRight));
+                return;
+            }
+            else if(arc.LeftArc == null)
+            {
+                Edges.Add(new Edge(arc.LeftEdge.Origin, null, null, null, bottomLeft));
+            }
+
             Node intersection = GetIntersectionFromPoints(arc.RightEdge.Origin, arc.RightEdge.Direction, bottomLeft, bottomRight);
             if (intersection != null)
             {
                 Edges.Add(new Edge(arc.RightEdge.Origin, null, null, null, intersection));
+                Edges.Add(new Edge(new Node(prevX, BottomBound), null, null, null, intersection));
+                Cleanup(arc.RightArc, intersection.X);
             }
-            Cleanup(arc.RightArc);
+            else
+            {
+                Cleanup(arc.RightArc);
+            }
         }
 
         private static void CheckForCircleEvents(Arc arc)
@@ -162,7 +177,7 @@ namespace Voronoi
                 intersection = GetIntersectionFromPoints(le.Origin, le.Direction, re.Origin, re.Direction);
             }
 
-            if (intersection == null) return;
+            if (intersection == null || intersection.Y > BottomBound) return;
             double dy;
             if(arc.LeftArc != null && !arc.LeftArc.Focus.IsFirstArc)
             {
@@ -508,6 +523,7 @@ namespace Voronoi
             {
                 return intersections[0] > intersections[1] ? intersections[0] : intersections[1];
             }
+
             double y1 = CurveFunc(arc.Focus, Directrix, intersections[0] + 0.5);
             double y2 = CurveFunc(arc.RightArc.Focus, Directrix, intersections[0] + 0.5);
             return y1 < y2 ? intersections[0] : intersections[1];

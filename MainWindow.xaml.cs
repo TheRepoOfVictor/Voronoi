@@ -32,7 +32,8 @@ namespace Voronoi
             Vd = new VDiagram(0, 800, 450);
             focus = new Node(400, 225);
             canvas = TheCanvas;
-            //AddAndDrawNode(379, 141.6);
+            //AddAndDrawNode(24,405.6);
+            //AddAndDrawNode(79.2, 436.8);
         }
 
         private void AddAndDrawNode(double x, double y)
