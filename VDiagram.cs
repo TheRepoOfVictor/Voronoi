@@ -93,8 +93,8 @@ namespace Voronoi
             SweepLine = new RBTree();
             Queue = new PriorityQueue();
 
-            Edge leftmost = new Edge(new Node(LeftBound, -BottomBound), new Node(LeftBound, BottomBound), null, null);
-            Edge rightmost = new Edge(new Node(RightBound , -BottomBound), new Node(RightBound, BottomBound), null, null);
+            Edge leftmost = new Edge(new Node(LeftBound, 0), new Node(LeftBound, BottomBound), null, null);
+            Edge rightmost = new Edge(new Node(RightBound , 0), new Node(RightBound, BottomBound), null, null);
             Arc first = new Arc(new Node(RightBound/2, 0, true), leftmost, rightmost, null, null);
             leftmost.RightArc = first;
             rightmost.LeftArc = first;
@@ -238,15 +238,19 @@ namespace Voronoi
 
             if (leftArc == null)
             {
-                rightArc.LeftEdge = toRemove.LeftEdge;
+                Edge newLeft = new Edge(e.Intersection, new Node(LeftBound, BottomBound), null, rightArc);
+                rightArc.LeftEdge = newLeft;
                 rightArc.LeftArc = null;
+                Edges.Add(new Edge(toRemove.LeftEdge.Origin, null, null, null, e.Intersection));
                 Edges.Add(new Edge(toRemove.RightEdge.Origin, null, null, null, e.Intersection));
                 CheckForCircleEvents(rightArc);
             }
             else if (rightArc == null)
             {
-                leftArc.RightEdge = toRemove.RightEdge;
+                Edge newRight = new Edge(e.Intersection, new Node(RightBound, BottomBound), leftArc, null);
+                leftArc.RightEdge = newRight;
                 leftArc.RightArc = null;
+                Edges.Add(new Edge(toRemove.RightEdge.Origin, null, null, null, e.Intersection));
                 Edges.Add(new Edge(toRemove.LeftEdge.Origin, null, null, null, e.Intersection));
                 CheckForCircleEvents(leftArc);
             }
