@@ -7,7 +7,7 @@ namespace Voronoi
 {
     public class Arc
     {
-        public Arc(Node f, Edge le, Edge re, Arc la, Arc ra)
+        public Arc(Node f, Edge le, Edge re, Arc la, Arc ra, Face face)
         {
             Focus = f;
             LeftEdge = le;
@@ -15,6 +15,7 @@ namespace Voronoi
             LeftArc = la;
             RightArc = ra;
             Event = null;
+            Face = face;
         }
         
         public Node Focus { get; set; }
@@ -23,6 +24,7 @@ namespace Voronoi
         public Arc LeftArc { get; set; }
         public Arc RightArc { get; set; }
         public Event Event { get; set; }
+        public Face Face { get; set; }
 
         public static bool operator <(Arc a1, Arc a2)
         {
@@ -55,6 +57,7 @@ namespace Voronoi
         public Arc LeftArc { get; set; }
         public Arc RightArc { get; set; }
         public Node End { get; set; }
+        public HalfEdge Half { get; set; }
     }
 
     public class Node
@@ -95,14 +98,15 @@ namespace Voronoi
 
             Edge leftmost = new Edge(new Node(LeftBound, 0), new Node(LeftBound, BottomBound), null, null);
             Edge rightmost = new Edge(new Node(RightBound , 0), new Node(RightBound, BottomBound), null, null);
-            Arc first = new Arc(new Node(RightBound/2, 0, true), leftmost, rightmost, null, null);
+            Arc first = new Arc(new Node(RightBound/2, 0, true), leftmost, rightmost, null, null, null);
             leftmost.RightArc = first;
             rightmost.LeftArc = first;
             Edges = new List<Edge>();
             SweepLine.Insert(first);
+            TheDiagram = new DCEL();
         }
 
-
+        public DCEL TheDiagram { get; set; }
         public List<Edge> Edges { get; set; }
         public List<Node> Nodes { get; }
         public static double Directrix { get; set; }
@@ -136,23 +140,49 @@ namespace Voronoi
             if (arc == null) return;
             Node bottomLeft = new Node(LeftBound, BottomBound);
             Node bottomRight = new Node(RightBound, BottomBound);
-            if (arc.RightArc == null)
-            {
-                Edges.Add(new Edge(arc.RightEdge.Origin, null, null, null, bottomRight));
-                Edges.Add(new Edge(new Node(prevX, BottomBound), null, null, null, bottomRight));
-                return;
-            }
-            else if(arc.LeftArc == null)
+
+            if (arc.LeftArc == null)
             {
                 Edges.Add(new Edge(arc.LeftEdge.Origin, null, null, null, bottomLeft));
+                arc.LeftEdge.Half.Destination = new Vertex(bottomLeft.X, bottomLeft.Y);
+            }
+
+            if (arc.RightArc == null)
+            {
+                HalfEdge rightHalf = arc.RightEdge.Half;
+                HalfEdge leftHalf = arc.LeftEdge.Half;
+                Vertex bottomRightVertex = new Vertex(bottomRight.X, bottomRight.Y);
+                Vertex bottomVertex = leftHalf.Destination;
+                HalfEdge bottom = new HalfEdge(arc.Face, bottomVertex, bottomRightVertex, null, leftHalf, rightHalf);
+                arc.Face.Edges.Add(bottom);
+
+                leftHalf.Next = bottom;
+                rightHalf.Origin = bottomRightVertex;
+                rightHalf.Prev = bottom;
+
+                Edges.Add(new Edge(arc.RightEdge.Origin, null, null, null, bottomRight));
+                Edges.Add(new Edge(new Node(leftHalf.Destination.X, BottomBound), null, null, null, bottomRight));
+                return;
             }
 
             Node intersection = GetIntersectionFromPoints(arc.RightEdge.Origin, arc.RightEdge.Direction, bottomLeft, bottomRight);
             if (intersection != null)
             {
+                HalfEdge rightHalf = arc.RightEdge.Half;
+                HalfEdge leftHalf = arc.LeftEdge.Half;
+                Vertex bottomVertex = new Vertex(intersection.X, intersection.Y);
+                HalfEdge bottom = new HalfEdge(arc.Face, leftHalf.Destination, bottomVertex, null, leftHalf, rightHalf.Twin);
+                arc.Face.Edges.Add(bottom);
+
+                leftHalf.Next = bottom;
+                rightHalf.Twin.Prev = bottom;
+                rightHalf.Twin.Origin = bottomVertex;
+                rightHalf.Destination = bottomVertex;
+
                 Edges.Add(new Edge(arc.RightEdge.Origin, null, null, null, intersection));
-                Edges.Add(new Edge(new Node(prevX, BottomBound), null, null, null, intersection));
-                Cleanup(arc.RightArc, intersection.X);
+                Edges.Add(new Edge(new Node(leftHalf.Destination.X, BottomBound), null, null, null, intersection));
+
+                Cleanup(arc.RightArc, intersection.X); 
             }
             else
             {
@@ -208,21 +238,37 @@ namespace Voronoi
             Node[] directions = GetNormalDirections(above.Focus, next);
             Edge leftedge = new Edge(intersection, directions[0] + intersection, null, null);
             Edge rightedge = new Edge(intersection, directions[1] + intersection, null, null);
-            Arc newSite = new Arc(next, leftedge, rightedge, null, null);
+            Face face = new Face(new Vertex(next.X, next.Y));
+            TheDiagram.Faces.Add(face);
+            Arc newSite = new Arc(next, leftedge, rightedge, null, null, face);
 
-            Arc newleft = new Arc(above.Focus, above.LeftEdge, leftedge, above.LeftArc, newSite);
+            Arc newleft = new Arc(above.Focus, above.LeftEdge, leftedge, above.LeftArc, newSite, above.Face);
             if(newleft.LeftArc != null) newleft.LeftArc.RightArc = newleft;
             newleft.LeftEdge.RightArc = newleft;
 
-            Arc newRight = new Arc(above.Focus, rightedge, above.RightEdge, newSite, above.RightArc);
+            Arc newRight = new Arc(above.Focus, rightedge, above.RightEdge, newSite, above.RightArc, above.Face);
             if (newRight.RightArc != null) newRight.RightArc.LeftArc = newRight;
             newRight.RightEdge.LeftArc = newRight;
 
+            HalfEdge lefthalf = new HalfEdge(newSite.Face, null, null, null, null, null);
+            if(lefthalf.Incident != null)
+            {
+                lefthalf.Incident.Edges.Add(lefthalf);
+            }
+            HalfEdge righthalf = new HalfEdge(newRight.Face, null, null, lefthalf, null, null);
+            if (righthalf.Incident != null)
+            {
+                righthalf.Incident.Edges.Add(righthalf);
+            }
+            lefthalf.Twin = righthalf;
+
             leftedge.LeftArc = newleft;
             leftedge.RightArc = newSite;
+            leftedge.Half = lefthalf;
 
             rightedge.LeftArc = newSite;
             rightedge.RightArc = newRight;
+            rightedge.Half = righthalf;
 
             newSite.LeftArc = newleft;
             newSite.RightArc = newRight;
@@ -254,9 +300,27 @@ namespace Voronoi
             if (leftArc == null)
             {
                 Edge newLeft = new Edge(e.Intersection, new Node(LeftBound, BottomBound), null, rightArc);
+                HalfEdge lefthalf = new HalfEdge(rightArc.Face, new Vertex(e.Intersection.X, e.Intersection.Y), null, null, toRemove.RightEdge.Half, null);
+
+                newLeft.Half = lefthalf;
+                lefthalf.Incident.Edges.Add(lefthalf);
                 rightArc.LeftEdge = newLeft;
                 rightArc.LeftArc = null;
-                Edges.Add(new Edge(toRemove.LeftEdge.Origin, null, null, null, e.Intersection));
+
+                Vertex intersection = new Vertex(e.Intersection.X, e.Intersection.Y);
+                HalfEdge oldlefthalf = toRemove.LeftEdge.Half;
+                HalfEdge oldrighthalf = toRemove.RightEdge.Half;
+                if (oldlefthalf != null)
+                {
+                    Edges.Add(new Edge(toRemove.LeftEdge.Origin, null, null, null, e.Intersection));
+                    oldlefthalf.Destination = intersection;
+                    oldlefthalf.Next = oldrighthalf.Twin;
+                    oldrighthalf.Twin.Prev = oldlefthalf;
+                    oldrighthalf.Twin.Origin = intersection;
+                }
+                oldrighthalf.Destination = intersection;
+                oldrighthalf.Next = lefthalf;
+
                 Edges.Add(new Edge(toRemove.RightEdge.Origin, null, null, null, e.Intersection));
                 CheckForCircleEvents(rightArc);
             }
@@ -265,7 +329,25 @@ namespace Voronoi
                 Edge newRight = new Edge(e.Intersection, new Node(RightBound, BottomBound), leftArc, null);
                 leftArc.RightEdge = newRight;
                 leftArc.RightArc = null;
-                Edges.Add(new Edge(toRemove.RightEdge.Origin, null, null, null, e.Intersection));
+
+                HalfEdge righthalf = new HalfEdge(leftArc.Face, null, new Vertex(e.Intersection.X, e.Intersection.Y), null, null, toRemove.LeftEdge.Half.Twin);
+                newRight.Half = righthalf;
+                righthalf.Incident.Edges.Add(righthalf);
+
+                HalfEdge oldlefthalf = toRemove.LeftEdge.Half;
+                HalfEdge oldrighthalf = toRemove.RightEdge.Half;
+                Vertex intersection = new Vertex(e.Intersection.X, e.Intersection.Y);
+                if (oldrighthalf != null)
+                {
+                    Edges.Add(new Edge(toRemove.RightEdge.Origin, null, null, null, e.Intersection));
+                    oldrighthalf.Prev = oldlefthalf;
+                    oldrighthalf.Origin = intersection;
+                    oldlefthalf.Next = oldrighthalf;
+                }
+                oldlefthalf.Twin.Origin = intersection;
+                oldlefthalf.Destination = intersection;
+                oldlefthalf.Twin.Prev = righthalf;
+
                 Edges.Add(new Edge(toRemove.LeftEdge.Origin, null, null, null, e.Intersection));
                 CheckForCircleEvents(leftArc);
             }
@@ -273,10 +355,40 @@ namespace Voronoi
             {
                 Node newDirection = GetNormalDirections(leftArc.Focus, rightArc.Focus)[0];
                 Edge newEdge = new Edge(e.Intersection, newDirection + e.Intersection, leftArc, rightArc);
+                Vertex intersection = new Vertex(e.Intersection.X, e.Intersection.Y);
+                HalfEdge newHalf = new HalfEdge(rightArc.Face, intersection, null, null, toRemove.RightEdge.Half, null);
+                if(rightArc.Face != null)
+                {
+                    rightArc.Face.Edges.Add(newHalf);
+                }
+
+                HalfEdge newTwin = new HalfEdge(leftArc.Face, null, intersection, newHalf, null, toRemove.LeftEdge.Half.Twin);
+                if(leftArc.Face != null)
+                {
+                    leftArc.Face.Edges.Add(newTwin);
+                }
+
+                newHalf.Twin = newTwin;
+                newEdge.Half = newHalf;
+
+                HalfEdge oldlefthalf = toRemove.LeftEdge.Half;
+                HalfEdge oldrighthalf = toRemove.RightEdge.Half;
+
+                oldlefthalf.Destination = intersection;
+                oldlefthalf.Next = oldrighthalf.Twin;
+                oldlefthalf.Twin.Origin = intersection;
+                oldlefthalf.Twin.Prev = newTwin;
+
+                oldrighthalf.Destination = intersection;
+                oldrighthalf.Next = newHalf;
+                oldrighthalf.Twin.Origin = intersection;
+                oldrighthalf.Twin.Prev = oldlefthalf;
+
                 leftArc.RightEdge = newEdge;
                 leftArc.RightArc = rightArc;
                 rightArc.LeftEdge = newEdge;
                 rightArc.LeftArc = leftArc;
+
                 Edges.Add(new Edge(toRemove.RightEdge.Origin, null, null, null, e.Intersection));
                 Edges.Add(new Edge(toRemove.LeftEdge.Origin, null, null, null, e.Intersection));
                 CheckForCircleEvents(rightArc);

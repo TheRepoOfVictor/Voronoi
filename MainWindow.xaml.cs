@@ -32,8 +32,8 @@ namespace Voronoi
             Vd = new VDiagram(0, 800, 450);
             focus = new Node(400, 225);
             canvas = TheCanvas;
-            //AddAndDrawNode(24,405.6);
-            //AddAndDrawNode(79.2, 436.8);
+            //AddAndDrawNode(540,192);
+            //AddAndDrawNode(160,198);
         }
 
         private void AddAndDrawNode(double x, double y)
@@ -79,7 +79,7 @@ namespace Voronoi
 
             
             Vd.AddNode(e.GetPosition(this).X, e.GetPosition(this).Y);
-            Vd.PrintNodes();
+            //Vd.PrintNodes();
             DrawDot(e.GetPosition(this).X, e.GetPosition(this).Y, Brushes.Gray);
         }
         
@@ -90,6 +90,38 @@ namespace Voronoi
             {
                 DrawLine(edge.Origin.X, edge.Origin.Y, edge.End.X, edge.End.Y);
             }
+
+            /*
+            foreach(Face f in Vd.TheDiagram.Faces)
+            {
+                Debug.WriteLine("Face at (" + f.Focus.X + "," + f.Focus.Y + ")");
+                HalfEdge cur = f.Edges[0];
+                Vertex origin = cur.Origin;
+                if (origin != null) 
+                { 
+                    Debug.Write("[" + origin.X + "," + origin.Y + "]");
+                    while (true)
+                    {
+                        Vertex dest = cur.Destination;
+                        Debug.Write("----->[" + dest.X + "," + dest.Y + "]");
+
+                        if(dest == null)
+                        {
+                            Debug.WriteLine("Something Went Wrong Here!");
+                            break;
+                        }
+
+                        if (dest.X == origin.X && dest.Y == origin.Y)
+                        {
+                            Debug.WriteLine("");
+                            break;
+                        }
+                        cur = cur.Next;
+                    }
+                }
+                else Debug.WriteLine("Something Went Wrong Here!");
+                Debug.WriteLine("_____________________________________________");
+            }*/
         }
         private void Clear(object sender, RoutedEventArgs e)
         {
