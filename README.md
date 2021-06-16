@@ -5,7 +5,7 @@ Fortune's Algorithm Impementation in C#
 
 ### TODO: 
 - [x] Output the diagram in a [DCEL](https://en.wikipedia.org/wiki/Doubly_connected_edge_list) instead of what is currently just a list of edges with no information of any of the faces stored anywhere. 
-- [ ] Implement [Lloyd's algorthm](https://en.wikipedia.org/wiki/Lloyd%27s_algorithm) to make (prettier?) diagrams. 
+- [x] Implement [Lloyd's algorthm](https://en.wikipedia.org/wiki/Lloyd%27s_algorithm) to make (prettier?) diagrams. 
 
 
 ### The following resources were extremely helpful:
