@@ -76,13 +76,11 @@ namespace Voronoi
         private void WhenMouseDown(Object sender, MouseButtonEventArgs e)
         {
             //Debug.WriteLine("MouseClicked at (" + e.GetPosition(this).X + "," + e.GetPosition(this).Y +")");
-
-            
             Vd.AddNode(e.GetPosition(this).X, e.GetPosition(this).Y);
-            //Vd.PrintNodes();
             DrawDot(e.GetPosition(this).X, e.GetPosition(this).Y, Brushes.Gray);
+            //Vd.PrintNodes();
         }
-        
+
         private void Sweep(object sender, RoutedEventArgs e)
         {
             Vd.Sweep();
@@ -96,6 +94,8 @@ namespace Voronoi
             {
                 Debug.WriteLine("Face at (" + f.Focus.X + "," + f.Focus.Y + ")");
                 HalfEdge cur = f.Edges[0];
+
+                
                 Vertex origin = cur.Origin;
                 if (origin != null) 
                 { 
@@ -120,9 +120,56 @@ namespace Voronoi
                     }
                 }
                 else Debug.WriteLine("Something Went Wrong Here!");
+                
+
+
+                Vertex dest = cur.Destination;
+                if (dest != null)
+                {
+                    Debug.Write("[" + dest.X + "," + dest.Y + "]");
+                    while (true)
+                    {
+                        Vertex ori = cur.Origin;
+                        Debug.Write("----->[" + ori.X + "," + ori.Y + "]");
+
+                        if (dest == null)
+                        {
+                            Debug.WriteLine("Something Went Wrong Here!");
+                            break;
+                        }
+
+                        if (dest.X == ori.X && dest.Y == ori.Y)
+                        {
+                            Debug.WriteLine("");
+                            break;
+                        }
+                        cur = cur.Prev;
+                    }
+                }
+                else Debug.WriteLine("Something Went Wrong Here!");
+
                 Debug.WriteLine("_____________________________________________");
-            }*/
+            }
+            */
         }
+
+        private void Relax(object sender, RoutedEventArgs e)
+        {
+            List<Node> relaxedNodes = Vd.Relax();
+            TheCanvas.Children.Clear();
+            Vd = new VDiagram(0, 800, 450);
+            foreach (Node n in relaxedNodes)
+            {
+                DrawDot(n.X, n.Y, Brushes.Gray);
+                Vd.AddNode(n.X, n.Y);
+            }
+            Vd.Sweep();
+            foreach (Edge edge in Vd.Edges)
+            {
+                DrawLine(edge.Origin.X, edge.Origin.Y, edge.End.X, edge.End.Y);
+            }
+        }
+
         private void Clear(object sender, RoutedEventArgs e)
         {
             TheCanvas.Children.Clear();

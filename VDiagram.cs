@@ -190,6 +190,36 @@ namespace Voronoi
             }
         }
 
+        public List<Node> Relax()
+        {
+            List<Node> relaxedNodes = new List<Node>();
+            foreach(Face f in TheDiagram.Faces)
+            {
+                HalfEdge cur = f.Edges[0];
+                Vertex origin = cur.Origin;
+                double area = 0;
+                double newX = 0;
+                double newY = 0;
+
+                while (true)
+                {
+                    double det = cur.Origin.X * cur.Destination.Y - cur.Destination.X * cur.Origin.Y;
+                    area += det / 2;
+                    newX += (cur.Origin.X + cur.Destination.X) * det;
+                    newY += (cur.Origin.Y + cur.Destination.Y) * det;
+
+                    cur = cur.Next;
+                    if (cur.Origin.X == origin.X && cur.Origin.Y == origin.Y) break;
+                }
+
+                newX = newX / (6 * area);
+                newY = newY / (6 * area);
+
+                relaxedNodes.Add(new Node(newX, newY));
+            }
+            return relaxedNodes;
+        }
+
         private static void CheckForCircleEvents(Arc arc)
         {
             if (arc.LeftArc == null && arc.RightArc == null) return;
